@@ -1,0 +1,120 @@
+<?php
+
+/**
+ * @file
+ * Github deploy main functionality.
+ */
+
+define('GITHUB_DEPLOY_GIT_PHP_LIBRARY_URL', 'https://github.com/kbjr/Git.php.git');
+define('GITHUB_DEPLOY_GIT_PHP_LIBRARY_URL_DOWNLOAD', 'https://github.com/kbjr/Git.php/archive/master.zip');
+define('GITHUB_DEPLOY_ADMIN_MENU_PATH', 'admin/config/development/github-deploy');
+define('GITHUB_DEPLOY_DEFAULT_GIT_PATH', '/usr/bin/git');
+
+/**
+ * Implements hook_menu().
+ */
+function github_deploy_menu() {
+  $items = array();
+
+  $items['github-deploy/pull'] = array(
+    'title' => 'Github Deploy callback',
+    'page callback' => 'github_deploy_callback_pull',
+    'type' => MENU_CALLBACK,
+    'access callback' => 'github_deploy_access_callback_pull',
+    'file' => 'includes/github_deploy.pages.inc',
+  );
+
+  $items[GITHUB_DEPLOY_ADMIN_MENU_PATH] = array(
+    'title' => 'Github deploy',
+    'description' => 'Github webhooks.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('github_deploy_admin_settings'),
+    'access arguments' => array('administer github deploy'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/github_deploy.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback to validate github callback.
+ *
+ * @return bool
+ *    TRUE if secret match otherwise FALSE.
+ */
+function github_deploy_access_callback_pull() {
+  $access_secret_token = FALSE;
+  $access_whitelist_githubs_ip = FALSE;
+  $access_method = variable_get('github_deploy_admin_settings_secure_method');
+
+  // Check based on secret token.
+  if ($access_method == 'secret_token' || $access_method == 'both_methods') {
+    $secret = variable_get('github_deploy_admin_settings_secret');
+
+    // Be sure security token is set in github.
+    if (!empty($_SERVER['HTTP_X_HUB_SIGNATURE'])) {
+      list($hash_algo, $signature) = explode('=', $_SERVER['HTTP_X_HUB_SIGNATURE']);
+      $payload = file_get_contents('php://input');
+      $compute = hash_hmac($hash_algo, $payload, $secret);
+      $access_secret_token = hash_equals($compute, $signature);
+    }
+
+    // If method only secret_token return result.
+    if ($access_method == 'secret_token') {
+      return $access_secret_token;
+    }
+  }
+
+  if ($access_method == 'whitelist_githubs_ip' || $access_method == 'both_methods') {
+    // @TODO Check what we can do if Drupal is behind a reverse proxy.
+    $requester_ip = ip2long(ip_address());
+    $github_ips_range = variable_get('github_deploy_whitelist_githubs_ip');
+
+    if (($requester_ip <= ip2long($github_ips_range['range-1']['to'])
+        && ip2long($github_ips_range['range-1']['from']) <= $requester_ip)
+      || ($requester_ip <= ip2long($github_ips_range['range-2']['to'])
+        && ip2long($github_ips_range['range-2']['from']) <= $requester_ip)) {
+      $access_whitelist_githubs_ip = TRUE;
+    }
+
+    // If method only whitelist_githubs_ip return result.
+    if ($access_method == 'whitelist_githubs_ip') {
+      return $access_whitelist_githubs_ip;
+    }
+  }
+
+  // If we reach this point then both method used.
+  return $access_secret_token && $access_whitelist_githubs_ip;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function github_deploy_libraries_info() {
+  $libraries['gitphp'] = array(
+    'name' => 'Git.php',
+    'vendor url' => GITHUB_DEPLOY_GIT_PHP_LIBRARY_URL,
+    'download url' => GITHUB_DEPLOY_GIT_PHP_LIBRARY_URL_DOWNLOAD,
+    'version' => '0.x',
+    'files' => array(
+      'php' => array(
+        'Git.php',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function github_deploy_permission() {
+  return array(
+    'administer github deploy' => array(
+      'title' => t('Administer Github deploy'),
+      'description' => t('Administer Github deploy tasks and settings.'),
+    ),
+  );
+}

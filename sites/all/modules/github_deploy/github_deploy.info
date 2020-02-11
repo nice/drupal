@@ -1,0 +1,12 @@
+name = Github deploy
+description = Deploy github repository branch based on github callback.
+package = Development
+dependencies[] = libraries (>=7.x-2.0)
+core = 7.x
+
+; Information added by Drupal.org packaging script on 2017-11-19
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "github_deploy"
+datestamp = "1511054288"
+
