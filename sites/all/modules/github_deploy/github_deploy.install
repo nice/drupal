@@ -47,12 +47,12 @@ function github_deploy_install() {
   // During testing i found range is larger than 20.
   variable_set('github_deploy_whitelist_githubs_ip', array(
     'range-1' => array(
-      'from' => '140.82.115.0',
-      'to' => '140.82.115.255',
+      'from' => '192.30.252.0',
+      'to' => '192.30.252.255',
     ),
     'range-2' => array(
-      'from' => '185.199.108.0',
-      'to' => '185.199.108.255',
+      'from' => '140.82.115.0',
+      'to' => '140.82.115.255',
     ),
   ));
 
